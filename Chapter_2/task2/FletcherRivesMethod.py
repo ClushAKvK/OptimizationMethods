@@ -1,10 +1,11 @@
 import math
-import Swann
-import GoldenFusion
 
-x0 = (3, 1)
+import numpy as np
+
+from Chapter_2.task2 import Swann, GoldenFusion
+
+x0 = (3.0, 1.0)
 # x0 = (0.5, 1)
-
 
 def func(x):
     return x[0]**2 + 4 * x[1]**2 + x[0] * x[1] + x[0]
@@ -15,13 +16,18 @@ def func(x):
 #     return 2*x[0]**2 + x[1]**2 + x[0] * x[1]
 
 
-# # Test Grad
-# def grad(x):
-#     return 4*x[0] + x[1], x[0] + 2*x[1]
-#
+def gradient(xk):
+    x = np.array(xk)
+    h = 1e-6
+    grad = np.zeros_like(x)
 
-def grad(x):
-    return 2*x[0] + x[1] + 1, 8*x[1] + x[0]
+    for i in range(len(x)):
+        xi = x.copy()
+        xi[i] += h
+        df = func(xi) - func(x)
+        grad[i] = df / h
+
+    return list(grad)
 
 
 def norm(x):
@@ -29,11 +35,11 @@ def norm(x):
 
 
 def main():
-    print('Метод наискорейшего градиентного спуска')
-    arg = '{x} - t * {gx}'
+    print('Метод Флетчера–Ривса')
+    args = '{x} + t * {d}'
 
     x = x0
-    nabla = grad(x)
+    nabla = gradient(x)
 
     M = 20
     eps1 = 0.1
@@ -48,9 +54,10 @@ def main():
     k = 0
     print(f'Итерация k = {k}')
 
-    temp_args = (arg.format(x=x[0], gx=nabla[0]), arg.format(x=x[1], gx=nabla[1]))
-    # print(temp_args)
+    last_d = [-n for n in nabla]
+    print(f'Определяем d{k}: {tuple(last_d)}' )
 
+    temp_args = (args.format(x=x[0], d=last_d[0]), args.format(x=x[1], d=last_d[1]))
     print(f'Определяем величину t{k} из улсловия: f(x{k}_{(x[0], x[1])} - t{k} * ▽f(x{k})_{(nabla[0], nabla[1])}) -> min')
 
     segment = Swann.run(func, temp_args)
@@ -58,21 +65,22 @@ def main():
 
     print(f'Методом золотого сечения определили величину t{k}:')
     t = GoldenFusion.run(func, temp_args, segment)
-    # print(t)
 
     nx = tuple(eval(arg.replace('t', str(t))) for arg in temp_args)
-    print(f'x{k+1} = x{k} - t{k} * ▽f(x{k}) = {nx}\n')
+    print(f'x{k + 1} = x{k} - t{k} * ▽f(x{k}) = {nx}\n')
 
     fx, fnx = func(x), func(nx)
 
     double_check = 0
 
-    print(f'Проверка выполнения условий:\n k_{k} < M_{M}, ||x{k+1} - x{k}||={norm(tuple(nx[i] - x[i] for i in range(2)))} > eps2_{eps2}, |f(x{k+1} - f(x{k})|={abs(func(nx) - func(x))} > eps2_{eps2}')
-    while k < M and (norm(tuple(nx[i] - x[i] for i in range(2))) > eps2 or abs(func(nx) - func(x)) > eps2 or double_check < 1):
+    last_norm_nabla = norm(nabla)
 
-        if not (norm(tuple(nx[i] - x[i] for i in range(2))) > eps2 or abs(func(nx) - func(x)) > eps2):
+    print(f'Проверка выполнения условий:\n k_{k} < M_{M}, ||x{k + 1} - x{k}||={norm(tuple(nx[i] - x[i] for i in range(2)))} > eps2_{eps2}, |f(x{k + 1} - f(x{k})|={abs(func(nx) - func(x))} > eps2_{eps2}')
+    while k < M and (norm(tuple(nx[i] - x[i] for i in range(2))) > eps2 or abs(fnx - fx) > eps2 or double_check < 1):
+
+        if not (norm(tuple(nx[i] - x[i] for i in range(2))) > eps2 or abs(fnx - fx) > eps2):
             print('------------------------------------------------------------------------------------------------------------------------')
-            print(f'Выполняются условия: ||x{k+1} - x{k}||={norm(tuple(nx[i] - x[i] for i in range(2)))} < eps2_{eps2} и |f(x{k+1} - f(x{k})|={abs(func(nx) - func(x))} < eps2_{eps2} =>')
+            print(f'Выполняются условия: ||x{k + 1} - x{k}||={norm(tuple(nx[i] - x[i] for i in range(2)))} < eps2_{eps2} и |f(x{k + 1} - f(x{k})|={abs(func(nx) - func(x))} < eps2_{eps2} =>')
             print('=> делаем дополнительную итерацию для проверки на зацикливание')
             print('------------------------------------------------------------------------------------------------------------------------')
             double_check += 1
@@ -80,20 +88,25 @@ def main():
             double_check = 0
 
         k += 1
-        x, fx = nx, fnx
-
         print(f'Итерация k = {k}')
 
-        nabla = grad(nx)
+        nabla = gradient(nx)
         print(f'Проверка выполнения критерия окончания: ||▽f(x1_{x[0]},x2_{x[1]})||={norm(nabla)} < eps1_{eps1} - ', end='')
         if norm(nabla) < eps1:
-            print(f'критерий выполнен => x* = x_{x} =>')
-            print(f'Градиент ~ равен нулю')
+            print(f'критерий выполнен =>')
+            print(f'=> x* = x_{x} => градиент ~ равен нулю')
             return
         print()
 
+        norm_nabla = norm(nabla)
+        beta = norm_nabla**2 / last_norm_nabla**2
+        print(f'Определяем величину Beta = {beta}')
+
+        d = [-nabla[i] + beta * last_d[i] for i in range(len(nabla))]
+        print(f'Определяем d{k} = -▽f(x{k}) + Beta * d{k - 1}: {tuple(last_d)}')
+
         print(f'Определяем величину t{k} из улсловия: f(x{k}_{(x[0], x[1])} - t{k} * ▽f(x{k})_{(nabla[0], nabla[1])}) -> min')
-        temp_args = (arg.format(x=x[0], gx=nabla[0]), arg.format(x=x[1], gx=nabla[1]))
+        temp_args = (args.format(x=nx[0], d=d[0]), args.format(x=nx[1], d=d[1]))
 
         segment = Swann.run(func, temp_args)
         print(f'Методом Свенна определили начальный интервал неопределенности: [a{k}, b{k}] = [{segment[0]}, {segment[1]}]')
@@ -101,19 +114,22 @@ def main():
         print(f'Методом золотого сечения определили величину t{k}: ', end='')
         t = GoldenFusion.run(func, temp_args, segment)
 
+        last_d, last_norm_nabla, x, fx = d, norm_nabla, nx, fnx
+
         print(f'x{k + 1} = x{k} - t{k} * ▽f(x{k}) = {nx}\n')
         nx = tuple(eval(arg.replace('t', str(t))) for arg in temp_args)
         fnx = func(nx)
-        print(f'Проверка выполнения условий:\nk_{k} < M_{M}, ||x{k + 1} - x{k}||={norm(tuple(nx[i] - x[i] for i in range(2)))} > eps2_{eps2}, |f(x{k + 1} - f(x{k})|={abs(func(nx) - func(x))} > eps2_{eps2}')
+
+        print(
+            f'Проверка выполнения условий:\nk_{k} < M_{M}, ||x{k + 1} - x{k}||={norm(tuple(nx[i] - x[i] for i in range(2)))} > eps2_{eps2}, |f(x{k + 1} - f(x{k})|={abs(func(nx) - func(x))} > eps2_{eps2}')
 
     print()
     if k >= M:
         print('Предельное число итераций достигнуто')
     else:
         print(f'Необходимые условия достигнуты => x = {nx}, f(x) = {func(nx)}')
-        # print(nx)
-        # print(func(nx))
 
 
 if __name__ == '__main__':
     main()
+
