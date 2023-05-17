@@ -6,6 +6,8 @@ x0 = [3, 1]
 # x0 = [-1, 3]
 # x0 = [-0.5, 0]
 
+func = None
+
 
 def func1(x):
     return x[0]**2 + 4 * x[1]**2 + x[0] * x[1] + x[0]
@@ -15,7 +17,7 @@ def func2(x):
     return 7 * x[0]**2 + 2 * x[1]**2 - x[0] * x[1] + x[0]
 
 
-def func(x):
+def Testfunc(x):
     return x[0]**2 + x[1]**2
 
 
@@ -26,12 +28,15 @@ def gFunc(x):
 def Fkfunc(x):
     # global P
     # print(P, (r / 2) * gFunc(x)**2)
-    return func1(x) + (r / 2) * gFunc(x)**2
+    return func(x) + (r / 2) * gFunc(x)**2
 
 
 def main():
     print(f'Метод штрафов')
     global r
+
+    global func
+    func = func1
 
     x = x0
     r = 1
@@ -69,7 +74,7 @@ def main():
         print(f'Проверка выполения условия: P_{P} <= eps_{eps} - ', end='')
 
     print('выполняется => ')
-    print(f'x* = x*(r{k}) = {x}, f(x*) = {func1(x)}')
+    print(f'x* = x*(r{k}) = {x}, f(x*) = {func(x)}')
 
 
 if __name__ == '__main__':
